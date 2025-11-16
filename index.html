@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bidaio Bible App</title>
+
+    <!-- Google Fonts: Crimson Text & Lato -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&family=Lato:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS with custom theme -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 'primary-dark': '#0D2C4D', 'primary-accent': '#B49B6C', 'neutral-bg': '#F8F9FA', 'neutral-card': '#FFFFFF', 'neutral-text': '#343A40', 'neutral-border': '#DEE2E6' },
+                    fontFamily: { 'serif': ['Crimson Text', 'serif'], 'sans': ['Lato', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-neutral-bg font-sans antialiased">
+
+    <div class="md:flex">
+        <!-- ===== SIDEBAR (NAVIGATION) ===== -->
+        <aside
+            class="w-full md:w-1/3 lg:w-1/4 md:h-screen md:sticky md:top-0 bg-neutral-card p-6 md:border-r border-neutral-border flex flex-col">
+            <header>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 id="app-title" class="text-3xl font-bold font-serif text-primary-dark">Bidaio Bible</h1>
+                        <p id="app-subtitle" class="text-neutral-text/60 font-sans mt-1">New Testament</p>
+                    </div>
+                    <!-- Language Toggle -->
+                    <div id="language-toggle"
+                        class="flex border border-primary-dark rounded-md overflow-hidden text-sm">
+                        <button data-lang="en" class="px-3 py-1 font-bold">EN</button>
+                        <button data-lang="bj" class="px-3 py-1 font-bold">BJ</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Book List -->
+            <nav id="book-nav" class="mt-6 space-y-1 overflow-y-auto flex-1">
+                <!-- Book buttons will be generated here -->
+            </nav>
+
+            <!-- Chapter Grid -->
+            <div id="chapter-nav-container" class="mt-4 pt-4 border-t border-neutral-border">
+                <h3 id="chapter-nav-title" class="font-bold font-sans text-lg text-primary-dark mb-3">Chapters</h3>
+                <div id="chapter-nav" class="grid grid-cols-6 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                    <!-- Chapter buttons for the selected book will be generated here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- ===== MAIN CONTENT (SCRIPTURE) ===== -->
+        <main class="flex-1 p-6 md:p-10 lg:p-12">
+            <header class="mb-10">
+                <h2 id="chapter-title" class="text-4xl md:text-5xl font-serif font-bold text-neutral-text">
+                    Loading...
+                </h2>
+            </header>
+
+            <section id="verse-container" class="space-y-10">
+                <!-- Verses will be dynamically generated here -->
+            </section>
+        </main>
+    </div>
+
+    <!-- ===== JAVASCRIPT LOGIC ===== -->
+    <script>
+        // --- APPLICATION STATE ---
+        let bibleData = null;
+        let currentLanguage = 'en';
+        let currentBookKey = 'Mark'; // Default book
+        let currentChapterIndex = 0;
+
+        // --- UI TRANSLATIONS ---
+        const uiTranslations = {
+            appTitle: { en: "Bidaio Bible", bj: "Gah de' Paguh" },
+            appSubtitle: { en: "New Testament", bj: "New Testament" },
+            chapterNavTitle: { en: "Chapters", bj: "Chapters" },
+            books: {
+                en: {
+                    'Mark': 'Mark', 'Luke': 'Luke', 'John': 'John', 'Acts': 'Acts', 'Ephesus': 'Ephesians', 'Philippi': 'Philippians', 'Colossae': 'Colossians',
+                    '1THESSALONIANS': '1 Thessalonians', '2THESSALONIANS': '2 Thessalonians', '1Timothy': '1 Timothy', '2Timothy': '2 Timothy', 'Titus': 'Titus', 'James': 'James'
+                },
+                bj: {
+                    'Mark': "Gah deꞌ Paguh deꞌ Tanon Markus", 'Luke': "Gah deꞌ Paguh deꞌ Tanon Lukas", 'John': "Gah deꞌ Paguh deꞌ Tanon Yohanes", 'Acts': "Silita Rasul-Rasul",
+                    'Ephesus': "Sulat Tuduꞌ Uluk Nyaꞌa deꞌ Bisayaꞌ deꞌ Efesus", 'Philippi': "Sulat Tuduꞌ Uluk Nyaꞌa deꞌ Bisayaꞌ deꞌ Filipi",
+                    'Colossae': "Sulat Tuduꞌ Uluk Nyaꞌa deꞌ Bisayaꞌ deꞌ Kolose", '1THESSALONIANS': "Sulat deꞌ Sibungas-e Tuduꞌ Uluk Nyaꞌa deꞌ Tesalonika",
+                    '2THESSALONIANS': "Sulat deꞌ Keꞌ Duwoh-e Tuduꞌ Uluk Nyaꞌa deꞌ Tesalonika", '1Timothy': "Sulat deꞌ Sibungas-e Tuduꞌ Timotius",
+                    '2Timothy': "Sulat deꞌ Keꞌ Duwoh-e Tuduꞌ Timotius", 'Titus': "Sulat Paulus Tuduꞌ Titus", 'James': "Sulat Yakobus"
+                }
+            }
+        };
+        const bookOrder = ['Mark', 'Luke', 'John', 'Acts', 'Ephesus', 'Philippi', 'Colossae', '1THESSALONIANS', '2THESSALONIANS', '1Timothy', '2Timothy', 'Titus', 'James'];
+
+        // --- DOM ELEMENT REFERENCES ---
+        const dom = {
+            appTitle: document.getElementById('app-title'),
+            appSubtitle: document.getElementById('app-subtitle'),
+            languageToggle: document.getElementById('language-toggle'),
+            bookNav: document.getElementById('book-nav'),
+            chapterNavContainer: document.getElementById('chapter-nav-container'),
+            chapterNavTitle: document.getElementById('chapter-nav-title'),
+            chapterNav: document.getElementById('chapter-nav'),
+            chapterTitle: document.getElementById('chapter-title'),
+            verseContainer: document.getElementById('verse-container')
+        };
+
+        // --- RENDER FUNCTIONS ---
+
+        const renderUIText = () => {
+            dom.appTitle.textContent = uiTranslations.appTitle[currentLanguage];
+            dom.appSubtitle.textContent = uiTranslations.appSubtitle[currentLanguage];
+            dom.chapterNavTitle.textContent = uiTranslations.chapterNavTitle[currentLanguage];
+
+            // Update language toggle style
+            dom.languageToggle.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('bg-primary-dark', 'text-white');
+                if (btn.dataset.lang === currentLanguage) {
+                    btn.classList.add('bg-primary-dark', 'text-white');
+                }
+            });
+        };
+
+        const renderBookList = () => {
+            dom.bookNav.innerHTML = '';
+            bookOrder.forEach(bookKey => {
+                if (bibleData[bookKey]) {
+                    const button = document.createElement('button');
+                    button.textContent = uiTranslations.books[currentLanguage][bookKey] || bookKey;
+                    button.className = `w-full text-left p-2 rounded-md font-sans transition-colors duration-200 ${currentBookKey === bookKey ? 'bg-primary-accent/20 text-primary-dark font-bold' : 'hover:bg-neutral-border/50'}`;
+                    button.onclick = () => handleBookSelect(bookKey);
+                    dom.bookNav.appendChild(button);
+                }
+            });
+        };
+
+        const renderChapterNav = () => {
+            const book = bibleData[currentBookKey];
+            if (!book) return;
+
+            dom.chapterNav.innerHTML = '';
+            for (let i = 0; i < book.total_chapters; i++) {
+                const chapterNumber = i + 1;
+                const button = document.createElement('button');
+                button.textContent = chapterNumber;
+                button.className = `chapter-button h-10 w-10 flex items-center justify-center rounded-md font-sans font-bold transition-colors duration-200 ${currentChapterIndex === i ? 'bg-primary-dark text-white' : 'bg-neutral-bg text-primary-dark hover:bg-primary-accent/20'}`;
+
+                if (book.chapters && book.chapters[i]) {
+                    button.onclick = () => handleChapterSelect(i);
+                } else {
+                    button.disabled = true;
+                    button.className += ' text-neutral-border cursor-not-allowed';
+                }
+                dom.chapterNav.appendChild(button);
+            }
+        };
+
+        const renderChapterContent = () => {
+            const book = bibleData[currentBookKey];
+            const chapter = book?.chapters?.[currentChapterIndex];
+
+            if (!chapter) {
+                dom.chapterTitle.textContent = `${uiTranslations.books[currentLanguage][currentBookKey]} (No Data)`;
+                dom.verseContainer.innerHTML = `<p class="font-serif">Content for this chapter is not available yet.</p>`;
+                return;
+            }
+
+
+            dom.chapterTitle.textContent = `${uiTranslations.books[currentLanguage][currentBookKey]} ${currentChapterIndex + 1}`;
+            dom.verseContainer.innerHTML = '';
+
+            chapter.verses.forEach(verse => {
+                const verseHtml = `
+                    <div class="flex items-start">
+                        <div class="w-12 text-right pt-1 pr-4">
+                            <span class="font-serif text-lg font-bold text-primary-accent">${verse.verse}</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xl font-serif text-neutral-text leading-loose">${verse.source_translation}</p>
+                            <p class="text-base font-sans text-neutral-text/70 italic mt-3">${verse.text}</p>
+                        </div>
+                    </div>`;
+                dom.verseContainer.insertAdjacentHTML('beforeend', verseHtml);
+            });
+        };
+
+        // --- EVENT HANDLERS ---
+        const handleBookSelect = (bookKey) => {
+            currentBookKey = bookKey;
+            currentChapterIndex = 0; // Reset to first chapter
+            renderBookList();
+            renderChapterNav();
+            renderChapterContent();
+        };
+
+        const handleChapterSelect = (chapterIndex) => {
+            currentChapterIndex = chapterIndex;
+            renderChapterNav();
+            renderChapterContent();
+        };
+
+        const handleLanguageToggle = (lang) => {
+            if (lang === currentLanguage) return;
+            currentLanguage = lang;
+            renderUIText();
+            renderBookList();
+            renderChapterContent(); // To update the title
+        };
+
+        // --- INITIALIZATION ---
+        const initializeApp = async () => {
+            try {
+                const response = await fetch('bible.json');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                bibleData = await response.json();
+
+                // Setup event listeners
+                dom.languageToggle.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON') {
+                        handleLanguageToggle(e.target.dataset.lang);
+                    }
+                });
+
+                // Initial render
+                renderUIText();
+                renderBookList();
+                renderChapterNav();
+                renderChapterContent();
+            } catch (error) {
+                console.error("Could not load and initialize bible app:", error);
+                dom.chapterTitle.textContent = "Error loading data.";
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+
+</html>
